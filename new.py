@@ -178,8 +178,7 @@ elif menu == "Orders":
                     total = qty * price
                     oid = len(orders) + 1
                     append_row_safe(sheets["orders"], [int(oid), int(cid), str(order_date), str(delivery_date), items, int(qty), float(price), float(total), pay_status, order_status, notes])
-                    st.success("Order added")
-                    st.experimental_rerun()
+                    st.success("Order added! Please refresh to see the updated list.")
 
     st.dataframe(orders, use_container_width=True)
 
@@ -207,8 +206,7 @@ elif menu == "Transactions":
                     remaining = total - (paid_sum + amount)
                     tid = len(transactions) + 1
                     append_row_safe(sheets["transactions"], [int(tid), int(oid), str(date), float(amount), method, float(remaining), notes])
-                    st.success("Transaction added")
-                    st.experimental_rerun()
+                    st.success("Transaction added! Please refresh to see the updated list.")
 
     st.dataframe(transactions, use_container_width=True)
 
@@ -232,8 +230,7 @@ elif menu == "Expenses":
             if submit:
                 eid = len(expenses) + 1
                 append_row_safe(sheets["expenses"], [int(eid), str(date), category, desc, float(amount), method, notes])
-                st.success("Expense added")
-                st.experimental_rerun()
+                st.success("Expense added! Please refresh to see the updated list.")
 
     st.dataframe(expenses, use_container_width=True)
 
@@ -256,7 +253,6 @@ elif menu == "Other Income":
             if submit:
                 iid = len(income) + 1
                 append_row_safe(sheets["income"], [int(iid), str(date), source, float(amount), method, notes])
-                st.success("Income added")
-                st.experimental_rerun()
+                st.success("Income added! Please refresh to see the updated list.")
 
     st.dataframe(income, use_container_width=True)
