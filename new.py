@@ -4,6 +4,31 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+
+
+# ---------------------------
+# LOGIN / PASSCODE PROTECTION
+# ---------------------------
+
+# Define your 6-digit passcode here
+PASSCODE = "123456"  # Replace with your own secure code
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🔒 Lumina Waters – Login")
+    code_input = st.text_input("Enter 6-digit passcode", type="password")
+    
+    if st.button("Login"):
+        if code_input == PASSCODE:
+            st.session_state.authenticated = True
+            st.success("✅ Access granted")
+        else:
+            st.error("❌ Incorrect passcode")
+    
+    # Stop further code from running until authenticated
+    st.stop()
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
