@@ -5,13 +5,26 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 
+# ---------------------------
+# DARK THEME STYLING
+# ---------------------------
+st.markdown(
+"""<style>
+.stApp {
+    background-color: #0E1117;
+    color: #F1F1F1;
+}
+.css-1d391kg {color:#F1F1F1;}
+.st-bc {background-color:#161B26;}
+.st-cb {background-color:#161B26;}
+</style>""",
+unsafe_allow_html=True
+)
 
 # ---------------------------
 # LOGIN / PASSCODE PROTECTION
 # ---------------------------
-
-# Define your 6-digit passcode here
-PASSCODE = "123456"  # Replace with your own secure code
+PASSCODE = "123456"  # replace with your 6-digit code
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -27,8 +40,7 @@ if not st.session_state.authenticated:
         else:
             st.error("❌ Incorrect passcode")
     
-    # Stop further code from running until authenticated
-    st.stop()
+    st.stop()  # stops the app until login
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
