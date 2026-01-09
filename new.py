@@ -17,6 +17,10 @@ st.markdown(
 .css-1d391kg {color:#F1F1F1;}
 .st-bc {background-color:#161B26;}
 .st-cb {background-color:#161B26;}
+header [data-testid="stToolbar"] {
+    visibility: hidden;
+    height: 0px;
+}
 </style>""",
 unsafe_allow_html=True
 )
