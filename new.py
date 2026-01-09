@@ -146,8 +146,8 @@ elif menu == "Customers":
             if submit and name:
                 cid = len(customers) + 1
                 append_row_safe(sheets["customers"], [int(cid), name, ctype, contact, email, address, vip, notes])
-                st.success("Customer added")
-                st.experimental_rerun()
+                st.success("Customer added! Please refresh to see the updated list.")
+
 
     st.dataframe(customers, use_container_width=True)
 
