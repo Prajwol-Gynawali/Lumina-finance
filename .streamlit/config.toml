@@ -1,0 +1,19 @@
+[theme]
+
+# Base mode
+base = "dark"
+
+# Brand accent color (water / premium)
+primaryColor = "#00bcd4"
+
+# Main background (dark)
+backgroundColor = "#0e1117"
+
+# Cards, sidebar, tables
+secondaryBackgroundColor = "#1c1f26"
+
+# Text color
+textColor = "#e6edf3"
+
+# Font style
+font = "sans serif"
