@@ -1,13 +1,31 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
-st.set_page_config(page_title="Lumina Waters Finance", layout="wide")
+st.set_page_config(page_title="Lumina Waters Finance", layout="wide", page_icon="💧", initial_sidebar_state="expanded")
 st.title("💧 Lumina Waters – Finance Management")
 st.caption("Premium Drinking Water • Finance Control System")
+
+# Dark theme customizations
+st.markdown(
+    """
+    <style>
+        .stApp {
+            background-color: #0E1117;
+            color: #F1F1F1;
+        }
+        .css-1d391kg {color:#F1F1F1;}
+        .st-bc {background-color:#161B26;}
+        .st-cb {background-color:#161B26;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # -------------------------------------------------
 # SIDEBAR
@@ -29,27 +47,22 @@ menu = st.sidebar.radio(
 # -------------------------------------------------
 @st.cache_resource
 def connect_sheets():
-    import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
-
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    st.secrets["gcp_service_account"], scope
-)
-
+        st.secrets["gcp_service_account"], scope
+    )
     client = gspread.authorize(creds)
-
+    sh = client.open("LuminaWatersDB")
     return {
-        "customers": client.open("LuminaWatersDB").worksheet("Customers"),
-        "orders": client.open("LuminaWatersDB").worksheet("Orders"),
-        "transactions": client.open("LuminaWatersDB").worksheet("Transactions"),
-        "expenses": client.open("LuminaWatersDB").worksheet("Expenses"),
-        "income": client.open("LuminaWatersDB").worksheet("OtherIncome"),
+        "customers": sh.worksheet("Customers"),
+        "orders": sh.worksheet("Orders"),
+        "transactions": sh.worksheet("Transactions"),
+        "expenses": sh.worksheet("Expenses"),
+        "income": sh.worksheet("OtherIncome")
     }
 
 try:
@@ -77,6 +90,18 @@ def safe(v):
         return v.item()
     return v
 
+def append_row_safe(ws, values):
+    # Convert all to Python native types to avoid JSON serialization errors
+    converted = []
+    for v in values:
+        if isinstance(v, (pd._libs.tslibs.timestamps.Timestamp, pd.Timestamp)):
+            converted.append(str(v))
+        elif pd.isna(v):
+            converted.append("")
+        else:
+            converted.append(v)
+    ws.append_row(converted)
+
 # -------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------
@@ -92,7 +117,6 @@ if menu == "Dashboard":
     paid = transactions["Amount Paid"].sum() if not transactions.empty else 0
     extra_income = income["Amount"].sum() if not income.empty else 0
     total_expenses = expenses["Amount"].sum() if not expenses.empty else 0
-
     net_balance = paid + extra_income - total_expenses
 
     c1, c2, c3, c4 = st.columns(4)
@@ -121,11 +145,9 @@ elif menu == "Customers":
 
             if submit and name:
                 cid = len(customers) + 1
-                sheets["customers"].append_row([
-                    int(cid), name, ctype, contact, email, address, vip, notes
-                ])
+                append_row_safe(sheets["customers"], [int(cid), name, ctype, contact, email, address, vip, notes])
                 st.success("Customer added")
-                st.rerun()
+                st.experimental_rerun()
 
     st.dataframe(customers, use_container_width=True)
 
@@ -134,7 +156,6 @@ elif menu == "Customers":
 # -------------------------------------------------
 elif menu == "Orders":
     st.header("📝 Orders")
-
     customers = load_data(sheets["customers"])
     orders = load_data(sheets["orders"])
 
@@ -156,14 +177,9 @@ elif menu == "Orders":
                     cid = customers[customers["Name"] == customer]["Customer ID"].values[0]
                     total = qty * price
                     oid = len(orders) + 1
-
-                    sheets["orders"].append_row([
-                        int(oid), int(cid), str(order_date), str(delivery_date),
-                        items, int(qty), float(price), float(total),
-                        pay_status, order_status, notes
-                    ])
+                    append_row_safe(sheets["orders"], [int(oid), int(cid), str(order_date), str(delivery_date), items, int(qty), float(price), float(total), pay_status, order_status, notes])
                     st.success("Order added")
-                    st.rerun()
+                    st.experimental_rerun()
 
     st.dataframe(orders, use_container_width=True)
 
@@ -172,7 +188,6 @@ elif menu == "Orders":
 # -------------------------------------------------
 elif menu == "Transactions":
     st.header("💳 Transactions")
-
     orders = load_data(sheets["orders"])
     transactions = load_data(sheets["transactions"])
 
@@ -188,16 +203,12 @@ elif menu == "Transactions":
 
                 if submit:
                     total = orders[orders["Order ID"] == oid]["Total Amount"].values[0]
-                    paid = transactions[transactions["Order ID"] == oid]["Amount Paid"].sum() if not transactions.empty else 0
-                    remaining = total - (paid + amount)
+                    paid_sum = transactions[transactions["Order ID"] == oid]["Amount Paid"].sum() if not transactions.empty else 0
+                    remaining = total - (paid_sum + amount)
                     tid = len(transactions) + 1
-
-                    sheets["transactions"].append_row([
-                        int(tid), int(oid), str(date),
-                        float(amount), method, float(remaining), notes
-                    ])
+                    append_row_safe(sheets["transactions"], [int(tid), int(oid), str(date), float(amount), method, float(remaining), notes])
                     st.success("Transaction added")
-                    st.rerun()
+                    st.experimental_rerun()
 
     st.dataframe(transactions, use_container_width=True)
 
@@ -220,12 +231,9 @@ elif menu == "Expenses":
 
             if submit:
                 eid = len(expenses) + 1
-                sheets["expenses"].append_row([
-                    int(eid), str(date), category, desc,
-                    float(amount), method, notes
-                ])
+                append_row_safe(sheets["expenses"], [int(eid), str(date), category, desc, float(amount), method, notes])
                 st.success("Expense added")
-                st.rerun()
+                st.experimental_rerun()
 
     st.dataframe(expenses, use_container_width=True)
 
@@ -247,11 +255,8 @@ elif menu == "Other Income":
 
             if submit:
                 iid = len(income) + 1
-                sheets["income"].append_row([
-                    int(iid), str(date), source,
-                    float(amount), method, notes
-                ])
+                append_row_safe(sheets["income"], [int(iid), str(date), source, float(amount), method, notes])
                 st.success("Income added")
-                st.rerun()
+                st.experimental_rerun()
 
     st.dataframe(income, use_container_width=True)
