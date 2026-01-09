@@ -20,11 +20,10 @@ st.markdown(
 </style>""",
 unsafe_allow_html=True
 )
-
-# ---------------------------
-# LOGIN / PASSCODE PROTECTION
-# ---------------------------
-PASSCODE = "123456"  # replace with your 6-digit code
+# -------------------
+# LOGIN
+# -------------------
+PASSCODE = "123456"
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -32,15 +31,17 @@ if "authenticated" not in st.session_state:
 if not st.session_state.authenticated:
     st.title("🔒 Lumina Waters – Login")
     code_input = st.text_input("Enter 6-digit passcode", type="password")
-    
+
     if st.button("Login"):
         if code_input == PASSCODE:
             st.session_state.authenticated = True
-            st.success("✅ Access granted")
+            st.success("✅ Access granted! Reloading...")
+            st.experimental_rerun()  # <-- this triggers the app to refresh and show main screen
         else:
             st.error("❌ Incorrect passcode")
     
-    st.stop()  # stops the app until login
+    st.stop()  # Only stop if not yet authenticated
+
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
