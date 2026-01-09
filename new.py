@@ -25,33 +25,23 @@ header [data-testid="stToolbar"] {
 unsafe_allow_html=True
 )
 # -------------------
-# LOGIN
+# LOGIN (SECURE)
 # -------------------
-PASSCODE = "123456"
-
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-
-# Flag to track login attempt
-if "login_attempted" not in st.session_state:
-    st.session_state.login_attempted = False
 
 if not st.session_state.authenticated:
     st.title("🔒 Lumina Waters – Login")
     code_input = st.text_input("Enter 6-digit passcode", type="password")
 
     if st.button("Login"):
-        st.session_state.login_attempted = True
-        if code_input == PASSCODE:
+        if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
         else:
             st.error("❌ Incorrect passcode")
 
-    # Stop running the main app if not authenticated
     if not st.session_state.authenticated:
-        if st.session_state.login_attempted:
-            st.info("Please enter the correct passcode to continue.")
-        st.stop()  # prevents main app from running
+        st.stop()
 # -------------------------------------------------
 # PAGE CONFIG
 # -------------------------------------------------
