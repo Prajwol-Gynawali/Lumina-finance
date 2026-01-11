@@ -271,14 +271,21 @@ with tabs[2]:
 # ---------------------------
 with tabs[3]:
     st.header("💳 Transactions")
-    
     orders = load_data(sheets["orders"])
     transactions = load_data(sheets["transactions"])
-    
-    # Paginate transactions
-    trans_pag, _ = paginate_dataframe(transactions, key_prefix="transactions")
+
+    if transactions is None or transactions.empty:
+        st.info("No transactions found.")
+        trans_pag = pd.DataFrame()
+    else:
+        try:
+            trans_pag, _ = paginate_dataframe(transactions, key_prefix="transactions")
+        except Exception as e:
+            st.error(f"Pagination error: {e}")
+            trans_pag = transactions
+
     st.dataframe(trans_pag, width="stretch")
-    
+
     if st.session_state.user_role == "admin" and not orders.empty:
         with st.expander("➕ Add Transaction"):
             with st.form("add_transaction_form"):
@@ -291,32 +298,36 @@ with tabs[3]:
                 submit = st.form_submit_button("Save Transaction")
                 
                 if submit:
+                    total = orders[orders["Order ID"] == oid]["Total Amount"].values[0]
+                    paid_sum = transactions[transactions["Order ID"] == oid]["Amount Paid"].sum() if not transactions.empty else 0
+                    remaining = total - (paid_sum + amount)
+                    tid = len(transactions) + 1 if not transactions.empty else 1
                     try:
-                        total = orders[orders["Order ID"] == oid]["Total Amount"].values[0]
-                        paid_sum = transactions[transactions["Order ID"] == oid]["Amount Paid"].sum() if not transactions.empty else 0
-                        remaining = total - (paid_sum + amount)
-                        tid = len(transactions) + 1
-                        append_row_safe(
-                            sheets["transactions"],
-                            [tid, oid, str(date), amount, method, remaining, notes]
-                        )
+                        append_row_safe(sheets["transactions"], [tid, oid, str(date), amount, method, remaining, notes])
                         st.success("Transaction added!")
                         st.experimental_rerun()
                     except Exception as e:
-                        st.error(f"Error adding transaction: {e}")
+                        st.error(f"Error saving transaction: {e}")
 
 # ---------------------------
 # EXPENSES
 # ---------------------------
 with tabs[4]:
     st.header("🧾 Expenses")
-    
     expenses = load_data(sheets["expenses"])
-    
-    # Paginate expenses
-    expenses_pag, _ = paginate_dataframe(expenses, key_prefix="expenses")
+
+    if expenses is None or expenses.empty:
+        st.info("No expenses found.")
+        expenses_pag = pd.DataFrame()
+    else:
+        try:
+            expenses_pag, _ = paginate_dataframe(expenses, key_prefix="expenses")
+        except Exception as e:
+            st.error(f"Pagination error: {e}")
+            expenses_pag = expenses
+
     st.dataframe(expenses_pag, width="stretch")
-    
+
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Expense"):
             with st.form("add_expense_form"):
@@ -326,33 +337,37 @@ with tabs[4]:
                 amount = st.number_input("Amount", min_value=0.0, key="expense_amount_new")
                 method = st.selectbox("Payment Method", ["Cash", "Bank", "Online"], key="expense_method_new")
                 notes = st.text_area("Notes", key="expense_notes_new")
-                
+
                 submit = st.form_submit_button("Save Expense")
                 
                 if submit:
+                    eid = len(expenses) + 1 if not expenses.empty else 1
                     try:
-                        eid = len(expenses) + 1
-                        append_row_safe(
-                            sheets["expenses"],
-                            [eid, str(date), category, desc, amount, method, notes]
-                        )
+                        append_row_safe(sheets["expenses"], [eid, str(date), category, desc, amount, method, notes])
                         st.success("Expense added!")
                         st.experimental_rerun()
                     except Exception as e:
-                        st.error(f"Error adding expense: {e}")
+                        st.error(f"Error saving expense: {e}")
 
 # ---------------------------
 # OTHER INCOME
 # ---------------------------
 with tabs[5]:
     st.header("💰 Other Income")
-    
     income = load_data(sheets["income"])
-    
-    # Paginate income
-    income_pag, _ = paginate_dataframe(income, key_prefix="income")
+
+    if income is None or income.empty:
+        st.info("No income records found.")
+        income_pag = pd.DataFrame()
+    else:
+        try:
+            income_pag, _ = paginate_dataframe(income, key_prefix="income")
+        except Exception as e:
+            st.error(f"Pagination error: {e}")
+            income_pag = income
+
     st.dataframe(income_pag, width="stretch")
-    
+
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Income"):
             with st.form("add_income_form"):
@@ -361,20 +376,17 @@ with tabs[5]:
                 amount = st.number_input("Amount", min_value=0.0, key="income_amount_new")
                 method = st.selectbox("Payment Method", ["Cash", "Bank", "Online"], key="income_method_new")
                 notes = st.text_area("Notes", key="income_notes_new")
-                
+
                 submit = st.form_submit_button("Save Income")
                 
                 if submit:
+                    iid = len(income) + 1 if not income.empty else 1
                     try:
-                        iid = len(income) + 1
-                        append_row_safe(
-                            sheets["income"],
-                            [iid, str(date), source, amount, method, notes]
-                        )
+                        append_row_safe(sheets["income"], [iid, str(date), source, amount, method, notes])
                         st.success("Income added!")
                         st.experimental_rerun()
                     except Exception as e:
-                        st.error(f"Error adding income: {e}")
+                        st.error(f"Error saving income: {e}")
 
 # ---------------------------
 # INVENTORY
@@ -382,19 +394,35 @@ with tabs[5]:
 with tabs[6]:
     st.header("📦 Inventory")
     inventory = load_data(sheets["inventory"])
-    inv_pag,_ = paginate_dataframe(inventory)
-    st.dataframe(inv_pag, width="stretch")
 
-    if st.session_state.user_role=="admin":
+    if inventory is None or inventory.empty:
+        st.info("No inventory items found.")
+        inventory_pag = pd.DataFrame()
+    else:
+        try:
+            inventory_pag, _ = paginate_dataframe(inventory, key_prefix="inventory")
+        except Exception as e:
+            st.error(f"Pagination error: {e}")
+            inventory_pag = inventory
+
+    st.dataframe(inventory_pag, width="stretch")
+
+    if st.session_state.user_role == "admin":
         with st.expander("➕ Add Item"):
-            item_name = st.text_input("Item Name")
-            qty = st.number_input("Quantity", min_value=0)
-            unit_price = st.number_input("Unit Price", min_value=0.0)
-            if st.button("Save Item"):
-                iid = len(inventory)+1
-                append_row_safe(sheets["inventory"], [iid, item_name, qty, unit_price])
-                st.success("Item added!")
-                st.experimental_rerun()
+            with st.form("add_inventory_form"):
+                item_name = st.text_input("Item Name", key="inventory_item_new")
+                qty = st.number_input("Quantity", min_value=0, key="inventory_qty_new")
+                unit_price = st.number_input("Unit Price", min_value=0.0, key="inventory_unit_price_new")
+                submit = st.form_submit_button("Save Item")
+
+                if submit:
+                    iid = len(inventory) + 1 if not inventory.empty else 1
+                    try:
+                        append_row_safe(sheets["inventory"], [iid, item_name, qty, unit_price])
+                        st.success("Item added!")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Error saving inventory item: {e}")
 
 # ---------------------------
 # INVOICES
