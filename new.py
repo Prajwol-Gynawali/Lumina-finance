@@ -47,28 +47,21 @@ h1,h2,h3,h4,h5,h6 { color: #F1F1F1; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# LOGIN (Passcode Only)
+# LOGIN (Simplified to Passcode Only)
 # ---------------------------
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "current_tab" not in st.session_state:
-    st.session_state.current_tab = 0  # default to Dashboard
-
-if not st.session_state.authenticated:
-    st.title("💧 Lumina Waters – Login")
+if not st.session_state.get("authenticated", False):
+    st.title("🔒 Lumina Waters – Login")
     code_input = st.text_input("Enter 6-digit passcode", type="password", key="login_passcode")
-    login_clicked = st.button("Login")
 
-    if login_clicked:
+    if st.button("Login", key="login_button"):
         if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
-            st.session_state.current_tab = 0  # Automatically set dashboard tab
+            st.session_state.user_role = "admin"  # or set logic for viewer/admin
             st.success("✅ Login successful!")
-            st.experimental_rerun()  # Optional: force rerun for instant dashboard
+            st.experimental_rerun()  # safe to call inside button click
         else:
             st.error("❌ Incorrect passcode")
-
-    st.stop()  # Stop execution until login is successful
+    st.stop()  # stop running anything below until login
 # ---------------------------
 # GOOGLE SHEETS CONNECTION
 # ---------------------------
