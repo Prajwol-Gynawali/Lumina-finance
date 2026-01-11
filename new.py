@@ -91,10 +91,16 @@ except Exception as e:
 # UTILITY FUNCTIONS
 # ---------------------------
 def load_data(ws):
-    records = ws.get_all_records()
-    df = pd.DataFrame(records)
-    df.columns = [str(c).strip() for c in df.columns]
-    return df
+    try:
+        values = ws.get_all_values()
+        if not values:
+            return pd.DataFrame()
+        df = pd.DataFrame(values[1:], columns=values[0])
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+    except Exception as e:
+        st.error("❌ Failed to load sheet: " + str(e))
+        return pd.DataFrame()
 
 def append_row_safe(ws, values):
     converted = []
