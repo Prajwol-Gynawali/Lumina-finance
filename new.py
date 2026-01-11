@@ -218,7 +218,7 @@ with tabs[2]:
             price = st.number_input("Price per Item", min_value=0.0)
             pay_status = st.selectbox("Payment Status", ["Paid", "Partial", "Unpaid"])
             order_status = st.selectbox("Order Status", ["Pending","Delivered","Cancelled"])
-            notes = st.text_area("Notes", key=f"order_notes_{oid}")
+            notes = st.text_area("Notes", key="order_notes_new")
             if st.button("Save Order"):
                 cid = customers[customers["Name"]==customer]["Customer ID"].values[0]
                 total = qty*price
