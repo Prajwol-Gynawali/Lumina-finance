@@ -47,19 +47,20 @@ h1,h2,h3,h4,h5,h6 { color: #F1F1F1; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# LOGIN (Simplified to Passcode Only)
+# LOGIN (Passcode Only)
 # ---------------------------
-if not st.session_state.authenticated:
-    st.title("🔒 Lumina Waters – Login")
-    code_input = st.text_input("Enter 6-digit passcode", type="password")
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-    login_clicked = st.button("Login")  # Capture click in a variable
+st.title("💧 Lumina Waters – Login")
+if not st.session_state.authenticated:
+    code_input = st.text_input("Enter 6-digit passcode", type="password", key="login_passcode")
+    login_clicked = st.button("Login")
 
     if login_clicked:
         if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
-            st.session_state.user_role = "admin"
-            st.experimental_rerun()  # Safe to call inside button callback
+            st.success("✅ Login successful! You can now access the app.")
         else:
             st.error("❌ Incorrect passcode")
 
