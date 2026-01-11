@@ -286,18 +286,3 @@ with tabs[6]:
         st.session_state.refresh = True
         st.stop()
     st.dataframe(inventory, width="stretch")
-
-# ---------------------------
-# INVOICES
-# ---------------------------
-with tabs[7]:
-    st.header("📄 Invoices")
-    orders = load_data(sheets["orders"])
-    customers = load_data(sheets["customers"])
-    oid_select = st.selectbox("Select Order ID for Invoice", orders["Order ID"] if not orders.empty else [], key="inv_oid")
-    if oid_select and st.button("Generate Invoice", key="gen_invoice"):
-        order = orders[orders["Order ID"]==oid_select].iloc[0]
-        customer_name = customers[customers["Customer ID"]==order["Customer ID"]]["Name"].values[0]
-        pdf_file = generate_invoice(oid_select, customer_name, order["Items Ordered"], order["Total Amount"])
-        with open(pdf_file, "rb") as f:
-            st.download_button("Download Invoice", data=f, file_name=pdf_file, mime="application/pdf")
