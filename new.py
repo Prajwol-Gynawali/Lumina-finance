@@ -144,14 +144,42 @@ tabs = st.tabs([
 # ---------------------------
 with tabs[0]:
     st.header("📊 Financial Overview")
+
     orders = load_data(sheets["orders"])
+    transactions = load_data(sheets["transactions"])
     expenses = load_data(sheets["expenses"])
     income = load_data(sheets["income"])
-    
+
+    total_sales = orders["Total Amount"].sum() if not orders.empty else 0
+    paid = transactions["Amount Paid"].sum() if not transactions.empty else 0
+    extra_income = income["Amount"].sum() if not income.empty else 0
+    total_expenses = expenses["Amount"].sum() if not expenses.empty else 0
+    net_balance = paid + extra_income - total_expenses
+
+    # Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Sales", f"₹ {total_sales:,.0f}")
+    with col2:
+        st.metric("Money Received", f"₹ {paid + extra_income:,.0f}")
+    with col3:
+        st.metric("Total Expenses", f"₹ {total_expenses:,.0f}")
+    with col4:
+        st.metric("Net Balance", f"₹ {net_balance:,.0f}")
+
+    # Pie Chart for Expense Breakdown
     if not expenses.empty:
-        import plotly.express as px
-        fig = px.pie(expenses, names="Category", values="Amount", title="Expense Breakdown")
-        st.plotly_chart(fig)
+        fig2 = px.pie(expenses, names="Category", values="Amount", title="Expense Breakdown")
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # Optionally, you can still add simple tables for overview
+    st.subheader("Recent Orders")
+    if not orders.empty:
+        st.dataframe(orders.tail(5), width="stretch")
+
+    st.subheader("Recent Transactions")
+    if not transactions.empty:
+        st.dataframe(transactions.tail(5), width="stretch")
 
 # ---------------------------
 # CUSTOMERS
