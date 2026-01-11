@@ -116,20 +116,7 @@ def append_row_safe(ws, values):
 def validate_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-def generate_invoice(order_id, customer_name, items, total):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="Lumina Waters Invoice", ln=True, align='C')
-    pdf.cell(200, 10, txt=f"Order ID: {order_id}", ln=True)
-    pdf.cell(200, 10, txt=f"Customer: {customer_name}", ln=True)
-    pdf.cell(200, 10, txt=f"Items: {items}", ln=True)
-    pdf.cell(200, 10, txt=f"Total: ₹{total}", ln=True)
-    
-    # FPDF expects filename only; no encoding parameter
-    filename = f"invoice_{order_id}.pdf"
-    pdf.output(filename)  # Remove 'utf-8'
-    return filename
+
 
 # ---------------------------
 # HEADER
