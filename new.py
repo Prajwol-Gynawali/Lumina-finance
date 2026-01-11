@@ -195,7 +195,7 @@ col1, col2 = st.columns([3, 1])
 with col1:
     st.title("💧 Lumina Waters Finance")
 with col2:
-    if st.button("Toggle Theme"):
+    if st.button("Toggle Theme", key="header_toggle_theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
 
@@ -475,7 +475,7 @@ with tabs[8]:
     st.header("⚙️ Settings")
     
     st.subheader("User Preferences")
-    if st.button("Toggle Theme"):
+    if st.button("Toggle Theme", key="header_toggle_theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
     
