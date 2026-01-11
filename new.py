@@ -51,16 +51,20 @@ h1,h2,h3,h4,h5,h6 { color: #F1F1F1; }
 # ---------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = 0  # default to Dashboard
 
-st.title("💧 Lumina Waters – Login")
 if not st.session_state.authenticated:
+    st.title("💧 Lumina Waters – Login")
     code_input = st.text_input("Enter 6-digit passcode", type="password", key="login_passcode")
     login_clicked = st.button("Login")
 
     if login_clicked:
         if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
-            st.success("✅ Login successful! You can now access the app.")
+            st.session_state.current_tab = 0  # Automatically set dashboard tab
+            st.success("✅ Login successful!")
+            st.experimental_rerun()  # Optional: force rerun for instant dashboard
         else:
             st.error("❌ Incorrect passcode")
 
