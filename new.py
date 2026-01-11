@@ -110,13 +110,14 @@ def append_row_safe(ws, values):
 def validate_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-def paginate_dataframe(df, page_size=10, key_prefix="page"):
+def paginate_dataframe(df, page_size=10, section_name="default"):
     if df.empty:
         return df, 0
     total_pages = (len(df) // page_size) + 1
-    page = st.selectbox("Page", range(1, total_pages+1), key=f"{key_prefix}_{id(df)}")
-    start = (page-1)*page_size
-    end = start+page_size
+    key = f"{section_name}_page_{id(df)}"  # unique per section
+    page = st.selectbox("Page", range(1, total_pages+1), key=key)
+    start = (page - 1) * page_size
+    end = start + page_size
     return df.iloc[start:end], total_pages
 
 def generate_invoice(order_id, customer_name, items, total):
