@@ -138,7 +138,7 @@ except Exception as e:
 # ---------------------------
 # UTILITY FUNCTIONS (Enhanced)
 # ---------------------------
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+
 def load_data(ws):
     records = ws.get_all_records()
     if not records:
