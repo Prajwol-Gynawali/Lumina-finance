@@ -186,7 +186,7 @@ with tabs[1]:
             email = st.text_input("Email")
             address = st.text_input("Address")
             vip = st.checkbox("VIP")
-            notes = st.text_area("Notes")
+            notes = st.text_area("Notes", key="customer_notes")
             if st.button("Save Customer"):
                 if name and validate_email(email):
                     cid = len(customers)+1
@@ -217,7 +217,7 @@ with tabs[2]:
             price = st.number_input("Price per Item", min_value=0.0)
             pay_status = st.selectbox("Payment Status", ["Paid", "Partial", "Unpaid"])
             order_status = st.selectbox("Order Status", ["Pending","Delivered","Cancelled"])
-            notes = st.text_area("Notes")
+            notes = st.text_area("Notes", key=f"order_notes_{oid}")
             if st.button("Save Order"):
                 cid = customers[customers["Name"]==customer]["Customer ID"].values[0]
                 total = qty*price
