@@ -125,8 +125,10 @@ def generate_invoice(order_id, customer_name, items, total):
     pdf.cell(200, 10, txt=f"Customer: {customer_name}", ln=True)
     pdf.cell(200, 10, txt=f"Items: {items}", ln=True)
     pdf.cell(200, 10, txt=f"Total: ₹{total}", ln=True)
+    
+    # FPDF expects filename only; no encoding parameter
     filename = f"invoice_{order_id}.pdf"
-    pdf.output(filename, 'F', 'utf-8')
+    pdf.output(filename)  # Remove 'utf-8'
     return filename
 
 # ---------------------------
