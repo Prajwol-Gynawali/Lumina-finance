@@ -220,20 +220,29 @@ with tabs[1]:
 # ---------------------------
 with tabs[2]:
     st.header("📝 Orders")
-    
     customers = load_data(sheets["customers"])
     orders = load_data(sheets["orders"])
     
-    # Paginate orders
-    orders_pag, _ = paginate_dataframe(orders, key_prefix="orders")
+    # Ensure orders is a DataFrame
+    if orders is None or orders.empty:
+        st.info("No orders found.")
+        orders_pag = pd.DataFrame()
+    else:
+        try:
+            orders_pag, _ = paginate_dataframe(orders, key_prefix="orders")
+        except Exception as e:
+            st.error(f"Pagination error: {e}")
+            orders_pag = orders
+
     st.dataframe(orders_pag, width="stretch")
     
+    # Admin add order form
     if st.session_state.user_role == "admin" and not customers.empty:
         with st.expander("➕ Add Order"):
             with st.form("add_order_form"):
                 customer = st.selectbox("Customer", customers["Name"], key="order_customer_new")
                 order_date = st.date_input("Order Date", datetime.today(), key="order_date_new")
-                delivery_date = st.date_input("Delivery Date", datetime.today(), key="order_delivery_new")
+                delivery_date = st.date_input("Delivery Date", datetime.today(), key="order_delivery_date_new")
                 items = st.text_input("Items Ordered", key="order_items_new")
                 qty = st.number_input("Quantity", min_value=1, key="order_qty_new")
                 price = st.number_input("Price per Item", min_value=0.0, key="order_price_new")
@@ -244,10 +253,10 @@ with tabs[2]:
                 submit = st.form_submit_button("Save Order")
                 
                 if submit:
+                    cid = customers[customers["Name"] == customer]["Customer ID"].values[0]
+                    total = qty * price
+                    oid = len(orders) + 1 if not orders.empty else 1
                     try:
-                        cid = customers[customers["Name"] == customer]["Customer ID"].values[0]
-                        total = qty * price
-                        oid = len(orders) + 1
                         append_row_safe(
                             sheets["orders"],
                             [oid, cid, str(order_date), str(delivery_date), items, qty, price, total, pay_status, order_status, notes]
@@ -255,7 +264,7 @@ with tabs[2]:
                         st.success("Order added!")
                         st.experimental_rerun()
                     except Exception as e:
-                        st.error(f"Error adding order: {e}")
+                        st.error(f"Error saving order: {e}")
 
 # ---------------------------
 # TRANSACTIONS
