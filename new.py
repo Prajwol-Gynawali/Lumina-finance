@@ -33,7 +33,7 @@ h1,h2,h3,h4,h5,h6 { color:#F1F1F1; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# SESSION STATE INITIALIZATION
+# SESSION STATE
 # ---------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -98,8 +98,7 @@ def load_data(ws):
         df = pd.DataFrame(values[1:], columns=values[0])
         df.columns = [str(c).strip() for c in df.columns]
         return df
-    except Exception as e:
-        st.error("❌ Failed to load sheet: " + str(e))
+    except:
         return pd.DataFrame()
 
 def append_row_safe(ws, values):
@@ -120,7 +119,7 @@ def validate_email(email):
 def paginate_dataframe(df, page_size=10, key_prefix="page"):
     if df.empty:
         return df, 0
-    total_pages = (len(df) // page_size) + 1
+    total_pages = (len(df) - 1) // page_size + 1
     page = st.selectbox("Page", range(1, total_pages + 1), key=f"{key_prefix}_{id(df)}")
     start = (page - 1) * page_size
     end = start + page_size
@@ -129,7 +128,7 @@ def paginate_dataframe(df, page_size=10, key_prefix="page"):
 # ---------------------------
 # HEADER
 # ---------------------------
-col1, col2 = st.columns([3, 1])
+col1, col2 = st.columns([3,1])
 with col1:
     st.title("💧 Lumina Waters Finance")
 with col2:
@@ -138,11 +137,11 @@ with col2:
         st.experimental_rerun()
 
 # ---------------------------
-# NAVIGATION
+# NAVIGATION TABS
 # ---------------------------
 tabs = st.tabs([
-    "📊 Dashboard", "👥 Customers", "📝 Orders", "💳 Transactions",
-    "🧾 Expenses", "💰 Other Income", "📦 Inventory", "⚙️ Settings"
+    "📊 Dashboard","👥 Customers","📝 Orders","💳 Transactions",
+    "🧾 Expenses","💰 Other Income","📦 Inventory","⚙️ Settings"
 ])
 
 # ---------------------------
@@ -155,21 +154,21 @@ with tabs[0]:
     expenses = load_data(sheets["expenses"])
     income = load_data(sheets["income"])
     
-    total_sales = orders["Total Amount"].sum() if not orders.empty else 0
-    paid = transactions["Amount Paid"].sum() if not transactions.empty else 0
-    extra_income = income["Amount"].sum() if not income.empty else 0
-    total_expenses = expenses["Amount"].sum() if not expenses.empty else 0
+    total_sales = pd.to_numeric(orders["Total Amount"], errors='coerce').sum() if not orders.empty else 0
+    paid = pd.to_numeric(transactions["Amount Paid"], errors='coerce').sum() if not transactions.empty else 0
+    extra_income = pd.to_numeric(income["Amount"], errors='coerce').sum() if not income.empty else 0
+    total_expenses = pd.to_numeric(expenses["Amount"], errors='coerce').sum() if not expenses.empty else 0
     net_balance = paid + extra_income - total_expenses
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("Total Sales", f"₹ {total_sales:,.0f}")
-    with col2: st.metric("Money Received", f"₹ {paid + extra_income:,.0f}")
-    with col3: st.metric("Total Expenses", f"₹ {total_expenses:,.0f}")
-    with col4: st.metric("Net Balance", f"₹ {net_balance:,.0f}")
-    
+    col1.metric("Total Sales", f"₹ {total_sales:,.0f}")
+    col2.metric("Money Received", f"₹ {paid + extra_income:,.0f}")
+    col3.metric("Total Expenses", f"₹ {total_expenses:,.0f}")
+    col4.metric("Net Balance", f"₹ {net_balance:,.0f}")
+
     if not expenses.empty:
-        fig2 = px.pie(expenses, names="Category", values="Amount", title="Expense Breakdown")
-        st.plotly_chart(fig2, use_container_width=True)
+        fig = px.pie(expenses, names="Category", values="Amount", title="Expense Breakdown")
+        st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
 # CUSTOMERS
@@ -180,13 +179,13 @@ with tabs[1]:
     search = st.text_input("Search by Name", key="search_customers")
     if search:
         customers = customers[customers["Name"].str.contains(search, case=False, na=False)]
-    customers_pag,_ = paginate_dataframe(customers)
+    customers_pag,_ = paginate_dataframe(customers, key_prefix="customers")
     st.dataframe(customers_pag, width="stretch")
-    
+
     if st.session_state.user_role=="admin":
         with st.expander("➕ Add Customer"):
             name = st.text_input("Name", key="customer_name_new")
-            ctype = st.selectbox("Type", ["Restaurant", "Mall", "Other"], key="customer_type_new")
+            ctype = st.selectbox("Type", ["Restaurant","Mall","Other"], key="customer_type_new")
             contact = st.text_input("Contact", key="customer_contact_new")
             email = st.text_input("Email", key="customer_email_new")
             address = st.text_input("Address", key="customer_address_new")
@@ -195,7 +194,7 @@ with tabs[1]:
             if st.button("Save Customer", key="customer_save_btn"):
                 if name and validate_email(email):
                     cid = len(customers)+1
-                    append_row_safe(sheets["customers"], [cid, name, ctype, contact, email, address, vip, notes])
+                    append_row_safe(sheets["customers"], [cid,name,ctype,contact,email,address,vip,notes])
                     st.success("Customer added!")
                     st.experimental_rerun()
                 else:
@@ -208,10 +207,9 @@ with tabs[2]:
     st.header("📝 Orders")
     customers = load_data(sheets["customers"])
     orders = load_data(sheets["orders"])
-    
-    orders_pag,_ = paginate_dataframe(orders)
+    orders_pag,_ = paginate_dataframe(orders, key_prefix="orders")
     st.dataframe(orders_pag, width="stretch")
-    
+
     if st.session_state.user_role=="admin" and not customers.empty:
         with st.expander("➕ Add Order"):
             customer = st.selectbox("Customer", customers["Name"], key="order_customer_new")
@@ -220,14 +218,14 @@ with tabs[2]:
             items = st.text_input("Items Ordered", key="order_items_new")
             qty = st.number_input("Quantity", min_value=1, key="order_qty_new")
             price = st.number_input("Price per Item", min_value=0.0, key="order_price_new")
-            pay_status = st.selectbox("Payment Status", ["Paid", "Partial", "Unpaid"], key="order_paystatus_new")
+            pay_status = st.selectbox("Payment Status", ["Paid","Partial","Unpaid"], key="order_paystatus_new")
             order_status = st.selectbox("Order Status", ["Pending","Delivered","Cancelled"], key="order_status_new")
             notes = st.text_area("Notes", key="order_notes_new")
             if st.button("Save Order", key="order_save_btn"):
                 cid = customers[customers["Name"]==customer]["Customer ID"].values[0]
                 total = qty*price
                 oid = len(orders)+1
-                append_row_safe(sheets["orders"], [oid, cid, str(order_date), str(delivery_date), items, qty, price, total, pay_status, order_status, notes])
+                append_row_safe(sheets["orders"], [oid,cid,str(order_date),str(delivery_date),items,qty,price,total,pay_status,order_status,notes])
                 st.success("Order added!")
                 st.experimental_rerun()
 
@@ -238,7 +236,7 @@ with tabs[3]:
     st.header("💳 Transactions")
     orders = load_data(sheets["orders"])
     transactions = load_data(sheets["transactions"])
-    trans_pag,_ = paginate_dataframe(transactions)
+    trans_pag,_ = paginate_dataframe(transactions, key_prefix="transactions")
     st.dataframe(trans_pag, width="stretch")
 
     if st.session_state.user_role=="admin" and not orders.empty:
@@ -249,11 +247,11 @@ with tabs[3]:
             method = st.selectbox("Payment Method", ["Cash","Bank","Online"], key="trans_method_new")
             notes = st.text_area("Notes", key="trans_notes_new")
             if st.button("Save Transaction", key="trans_save_btn"):
-                total = orders[orders["Order ID"]==oid]["Total Amount"].values[0]
-                paid_sum = transactions[transactions["Order ID"]==oid]["Amount Paid"].sum() if not transactions.empty else 0
+                total = pd.to_numeric(orders[orders["Order ID"]==oid]["Total Amount"], errors='coerce').sum()
+                paid_sum = pd.to_numeric(transactions[transactions["Order ID"]==oid]["Amount Paid"], errors='coerce').sum() if not transactions.empty else 0
                 remaining = total - (paid_sum + amount)
                 tid = len(transactions)+1
-                append_row_safe(sheets["transactions"], [tid, oid, str(date), amount, method, remaining, notes])
+                append_row_safe(sheets["transactions"], [tid,oid,str(date),amount,method,remaining,notes])
                 st.success("Transaction added!")
                 st.experimental_rerun()
 
@@ -263,7 +261,7 @@ with tabs[3]:
 with tabs[4]:
     st.header("🧾 Expenses")
     expenses = load_data(sheets["expenses"])
-    expenses_pag,_ = paginate_dataframe(expenses)
+    expenses_pag,_ = paginate_dataframe(expenses, key_prefix="expenses")
     st.dataframe(expenses_pag, width="stretch")
 
     if st.session_state.user_role=="admin":
@@ -276,7 +274,7 @@ with tabs[4]:
             notes = st.text_area("Notes", key="expense_notes_new")
             if st.button("Save Expense", key="expense_save_btn"):
                 eid = len(expenses)+1
-                append_row_safe(sheets["expenses"], [eid, str(date), category, desc, amount, method, notes])
+                append_row_safe(sheets["expenses"], [eid,str(date),category,desc,amount,method,notes])
                 st.success("Expense added!")
                 st.experimental_rerun()
 
@@ -286,7 +284,7 @@ with tabs[4]:
 with tabs[5]:
     st.header("💰 Other Income")
     income = load_data(sheets["income"])
-    income_pag,_ = paginate_dataframe(income)
+    income_pag,_ = paginate_dataframe(income, key_prefix="income")
     st.dataframe(income_pag, width="stretch")
 
     if st.session_state.user_role=="admin":
@@ -298,7 +296,7 @@ with tabs[5]:
             notes = st.text_area("Notes", key="income_notes_new")
             if st.button("Save Income", key="income_save_btn"):
                 iid = len(income)+1
-                append_row_safe(sheets["income"], [iid, str(date), source, amount, method, notes])
+                append_row_safe(sheets["income"], [iid,str(date),source,amount,method,notes])
                 st.success("Income added!")
                 st.experimental_rerun()
 
@@ -308,7 +306,7 @@ with tabs[5]:
 with tabs[6]:
     st.header("📦 Inventory")
     inventory = load_data(sheets["inventory"])
-    inventory_pag,_ = paginate_dataframe(inventory)
+    inventory_pag,_ = paginate_dataframe(inventory, key_prefix="inventory")
     st.dataframe(inventory_pag, width="stretch")
 
     if st.session_state.user_role=="admin":
@@ -318,7 +316,7 @@ with tabs[6]:
             unit_price = st.number_input("Unit Price", min_value=0.0, key="inventory_price_new")
             if st.button("Save Item", key="inventory_save_btn"):
                 iid = len(inventory)+1
-                append_row_safe(sheets["inventory"], [iid, item_name, qty, unit_price])
+                append_row_safe(sheets["inventory"], [iid,item_name,qty,unit_price])
                 st.success("Item added!")
                 st.experimental_rerun()
 
