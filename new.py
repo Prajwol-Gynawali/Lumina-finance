@@ -181,10 +181,10 @@ with tabs[1]:
     
     if st.session_state.user_role=="admin":
         with st.expander("➕ Add Customer"):
-            name = st.text_input("Name")
+            name = st.text_input("Name", key="customer_name_new")
             ctype = st.selectbox("Type", ["Restaurant", "Mall", "Other"])
             contact = st.text_input("Contact")
-            email = st.text_input("Email")
+            email = st.text_input("Email", key="customer_email_new")
             address = st.text_input("Address")
             vip = st.checkbox("VIP")
             notes = st.text_area("Notes", key="customer_notes")
