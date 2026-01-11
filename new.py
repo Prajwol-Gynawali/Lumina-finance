@@ -70,7 +70,7 @@ if not st.session_state.authenticated:
     if st.button("Login"):
         if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("❌ Incorrect passcode")
     st.stop()
