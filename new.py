@@ -47,20 +47,23 @@ h1,h2,h3,h4,h5,h6 { color: #F1F1F1; }
 """, unsafe_allow_html=True)
 
 # ---------------------------
-# LOGIN
+# LOGIN (Simplified to Passcode Only)
 # ---------------------------
 if not st.session_state.authenticated:
     st.title("🔒 Lumina Waters – Login")
-    code_input = st.text_input("Enter 6-digit passcode", type="password", key="login_passcode")
-    if st.button("Login", key="login_btn"):
+    code_input = st.text_input("Enter 6-digit passcode", type="password")
+
+    login_clicked = st.button("Login")  # Capture click in a variable
+
+    if login_clicked:
         if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
             st.session_state.user_role = "admin"
-            st.experimental_rerun()
+            st.experimental_rerun()  # Safe to call inside button callback
         else:
             st.error("❌ Incorrect passcode")
-    st.stop()
 
+    st.stop()  # Stop execution until login is successful
 # ---------------------------
 # GOOGLE SHEETS CONNECTION
 # ---------------------------
