@@ -167,11 +167,11 @@ def delete_row(ws, row_index):
 def validate_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-def paginate_dataframe(df, page_size=10):
+def paginate_dataframe(df, page_size=10, key_prefix="page"):
     if df.empty:
         return df, 0
     total_pages = (len(df) // page_size) + 1
-    page = st.selectbox("Page", range(1, total_pages + 1), key=f"page_{id(df)}")
+    page = st.selectbox("Page", range(1, total_pages + 1), key=f"{key_prefix}_{id(df)}")
     start = (page - 1) * page_size
     end = start + page_size
     return df.iloc[start:end], total_pages
