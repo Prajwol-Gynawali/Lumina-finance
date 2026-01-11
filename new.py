@@ -172,20 +172,24 @@ with tabs[0]:
 # ---------------------------
 with tabs[1]:
     st.header("👥 Customers")
-    
-    # Load customers
     customers = load_data(sheets["customers"])
     
-    # Search bar
-    search = st.text_input("Search by Name", key="search_customers")
-    if search:
-        customers = customers[customers["Name"].str.contains(search, case=False, na=False)]
+    # Ensure customers is a DataFrame
+    if customers is None or customers.empty:
+        st.info("No customers found.")
+        customers_pag = pd.DataFrame()
+    else:
+        search = st.text_input("Search by Name", key="search_customers")
+        if search:
+            customers = customers[customers["Name"].str.contains(search, case=False, na=False)]
+        try:
+            customers_pag, _ = paginate_dataframe(customers, key_prefix="customers")
+        except Exception as e:
+            st.error(f"Pagination error: {e}")
+            customers_pag = customers
+        st.dataframe(customers_pag, width="stretch")
     
-    # Paginate table
-    customers_pag, _ = paginate_dataframe(customers, key_prefix="customers")
-    st.dataframe(customers_pag, width="stretch")
-    
-    # Admin actions
+    # Admin add customer form
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Customer"):
             with st.form("add_customer_form"):
@@ -201,13 +205,13 @@ with tabs[1]:
                 
                 if submit:
                     if name and validate_email(email):
-                        cid = len(customers) + 1
-                        append_row_safe(
-                            sheets["customers"],
-                            [cid, name, ctype, contact, email, address, vip, notes]
-                        )
-                        st.success("Customer added!")
-                        st.experimental_rerun()
+                        cid = len(customers) + 1 if not customers.empty else 1
+                        try:
+                            append_row_safe(sheets["customers"], [cid, name, ctype, contact, email, address, vip, notes])
+                            st.success("Customer added!")
+                            st.experimental_rerun()
+                        except Exception as e:
+                            st.error(f"Error saving customer: {e}")
                     else:
                         st.error("Invalid email or missing name.")
 
