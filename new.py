@@ -89,43 +89,19 @@ if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
 # ---------------------------
-# LOGIN (Enhanced with MFA and Roles)
+# LOGIN (Simplified to Passcode Only)
 # ---------------------------
-def send_otp(email):
-    # Simulate sending OTP (replace with real SMTP)
-    otp = "123456"  # In production, generate random OTP
-    st.session_state.otp = otp
-    # msg = MIMEText(f"Your OTP is {otp}")
-    # msg['Subject'] = "Lumina Waters Login OTP"
-    # msg['From'] = "noreply@luminawaters.com"
-    # msg['To'] = email
-    # server = smtplib.SMTP('smtp.example.com', 587)
-    # server.starttls()
-    # server.login("your_email", "your_password")
-    # server.sendmail("noreply@luminawaters.com", email, msg.as_string())
-    # server.quit()
-    st.info("OTP sent to your email (simulated).")
-
 if not st.session_state.authenticated:
-    st.title("🔒 Lumina Waters – Secure Login")
-    col1, col2 = st.columns(2)
-    with col1:
-        code_input = st.text_input("Enter 6-digit passcode", type="password")
-        email = st.text_input("Email for OTP")
-    with col2:
-        otp_input = st.text_input("Enter OTP", type="password")
-    
-    if st.button("Send OTP"):
-        if email:
-            send_otp(email)
-    
+    st.title("🔒 Lumina Waters – Login")
+    code_input = st.text_input("Enter 6-digit passcode", type="password")
+
     if st.button("Login"):
-        if code_input == st.secrets["APP_PASSCODE"] and otp_input == st.session_state.get("otp", ""):
+        if code_input == st.secrets["APP_PASSCODE"]:
             st.session_state.authenticated = True
-            st.session_state.user_role = "admin" if email == "admin@luminawaters.com" else "viewer"  # Example role logic
+            st.session_state.user_role = "admin"  # Or set based on logic; default to admin for simplicity
             st.rerun()
         else:
-            st.error("❌ Incorrect credentials")
+            st.error("❌ Incorrect passcode")
     st.stop()
 
 # ---------------------------
