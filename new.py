@@ -637,4 +637,4 @@ with tabs[8]:
     st.divider()
     st.subheader("ðŸ’¬ Feedback")
     with st.form("feedback_form"):
-        feedback = st.text_area("Share feedback or report issues", placeholder="Your
+        feedback = st.text_area("Share feedback or report issues"
