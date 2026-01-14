@@ -124,13 +124,12 @@ def append_row_safe(sheet_name, values):
 def validate_email(email):
     return bool(re.match(r"[^@]+@[^@]+\.[^@]+", str(email))) if email else True
 
-# Fixed pagination - removed sheet_name from key to avoid NameError
+# Fixed pagination - unique key using id(df)
 def paginate_dataframe(df, page_size=15):
     if df.empty:
         st.info("No data available")
         return pd.DataFrame()
     total_pages = max(1, (len(df) + page_size - 1) // page_size)
-    # Unique key using id(df) - safe across tabs
     page = st.selectbox("Page", range(1, total_pages + 1), key=f"page_{id(df)}")
     start = (page - 1) * page_size
     return df.iloc[start:start + page_size]
@@ -397,22 +396,28 @@ with tabs[7]:
         "Amount": [total_sales, extra_income, total_sales + extra_income, -total_expenses, net_profit]
     })
     
+    inv_total = 0
     if not inventory.empty and "Quantity" in inventory.columns and "Unit Price" in inventory.columns:
         inventory["Value"] = inventory["Quantity"] * inventory["Unit Price"]
         inv_total = inventory["Value"].sum()
-    else:
-        inv_total = 0
     
-    if not orders.empty:
-        paid_by_order = transactions.groupby("Order Id")["Amount Paid"].sum().reset_index()
-        orders_merged = orders.merge(paid_by_order, on="Order Id", how="left")
-        orders_merged["Amount Paid"] = orders_merged["Amount Paid"].fillna(0)
-        orders_merged["Unpaid"] = orders_merged["Total Amount"] - orders_merged["Amount Paid"]
-        receivables = orders_merged[orders_merged["Unpaid"] > 0][["Order Id", "Customer Id", "Total Amount", "Unpaid"]]
-        rec_total = orders_merged["Unpaid"].sum()
-    else:
-        receivables = pd.DataFrame()
-        rec_total = 0
+    rec_total = 0
+    receivables = pd.DataFrame()
+    if not orders.empty and not transactions.empty:
+        # Safe column detection
+        order_id_col = next((col for col in transactions.columns if "Order" in col and ("Id" in col or "ID" in col)), None)
+        amount_paid_col = next((col for col in transactions.columns if "Amount" in col and "Paid" in col), None)
+        total_amount_col = next((col for col in orders.columns if "Total" in col and "Amount" in col), None)
+        customer_id_col = next((col for col in orders.columns if "Customer" in col and ("Id" in col or "ID" in col)), None)
+        
+        if order_id_col and amount_paid_col and total_amount_col:
+            paid_by_order = transactions.groupby(order_id_col)[amount_paid_col].sum().reset_index()
+            orders_merged = orders.merge(paid_by_order, left_on=order_id_col, right_on=order_id_col, how="left")
+            orders_merged[amount_paid_col] = orders_merged[amount_paid_col].fillna(0)
+            orders_merged["Unpaid"] = orders_merged[total_amount_col] - orders_merged[amount_paid_col]
+            select_cols = [order_id_col, customer_id_col or "Customer Id", total_amount_col, "Unpaid"]
+            receivables = orders_merged[orders_merged["Unpaid"] > 0][select_cols]
+            rec_total = orders_merged["Unpaid"].sum()
     
     if st.button("Generate Full Financial Report (Excel)"):
         buffer = BytesIO()
@@ -443,7 +448,7 @@ with tabs[7]:
     with st.expander("Preview Profit & Loss"):
         st.dataframe(pl_df.style.format({"Amount": "₹ {:,.0f}"}))
     with st.expander("Preview Receivables"):
-        st.dataframe(receivables.style.format({"Total Amount": "₹ {:,.0f}", "Unpaid": "₹ {:,.0f}"}))
+        st.dataframe(receivables.style.format({total_amount_col: "₹ {:,.0f}", "Unpaid": "₹ {:,.0f}"} if total_amount_col else {}))
 
 # ---------------------------
 # SETTINGS
