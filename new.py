@@ -6,6 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import plotly.express as px
 import re
 from io import BytesIO
+import time  # Added for delay to avoid quota issues
 
 # ---------------------------
 # PAGE CONFIG
@@ -92,8 +93,10 @@ except Exception as e:
 # ---------------------------
 # UTILITY FUNCTIONS (improved with tolerant headers & safe ID)
 # ---------------------------
-def load_data(ws):
+@st.cache_data(ttl=60)  # Cache data for 1 minute to reduce API calls
+def load_data(sheet_name):
     try:
+        ws = sheets[sheet_name]
         values = ws.get_all_values()
         if len(values) <= 1:
             return pd.DataFrame()
@@ -105,42 +108,38 @@ def load_data(ws):
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        time.sleep(1)  # Delay to avoid quota exceed
         return df
     except Exception as e:
-        st.error(f"❌ Failed to load sheet: {str(e)}")
+        st.error(f"❌ Failed to load {sheet_name}: {str(e)}")
         return pd.DataFrame()
 
-def get_next_id(ws):
+def get_next_id(sheet_name):
     try:
+        ws = sheets[sheet_name]
         ids = ws.col_values(1)[1:]  # first column, skip header
         nums = [int(x) for x in ids if x.strip().isdigit()]
         return max(nums) + 1 if nums else 1
     except:
         return 1
 
-def append_row_safe(ws, values):
-    clean = []
-    for v in values:
-        if pd.isna(v):
-            clean.append("")
-        elif isinstance(v, (datetime, pd.Timestamp)):
-            clean.append(v.strftime("%Y-%m-%d"))
-        else:
-            clean.append(str(v))
-    ws.append_row(clean)
+def append_row_safe(sheet_name, values):
+    try:
+        ws = sheets[sheet_name]
+        clean = []
+        for v in values:
+            if pd.isna(v):
+                clean.append("")
+            elif isinstance(v, (datetime, pd.Timestamp)):
+                clean.append(v.strftime("%Y-%m-%d"))
+            else:
+                clean.append(str(v))
+        ws.append_row(clean)
+    except Exception as e:
+        st.error(f"❌ Failed to append to {sheet_name}: {str(e)}")
 
 def validate_email(email):
     return bool(re.match(r"[^@]+@[^@]+\.[^@]+", str(email))) if email else True
-
-# Simple pagination (fixed key issue)
-def paginate_dataframe(df, page_size=15):
-    if df.empty:
-        st.info("No data available")
-        return df
-    total_pages = max(1, (len(df) + page_size - 1) // page_size)
-    page = st.selectbox("Page", range(1, total_pages + 1), key=f"page_{hash(str(df.columns))}")
-    start = (page - 1) * page_size
-    return df.iloc[start:start + page_size]
 
 # ---------------------------
 # HEADER
@@ -160,15 +159,15 @@ tabs = st.tabs([
 # ---------------------------
 with tabs[0]:
     st.header("📊 Financial Overview")
-    orders = load_data(sheets["orders"])
-    transactions = load_data(sheets["transactions"])
-    expenses = load_data(sheets["expenses"])
-    income = load_data(sheets["income"])
+    orders = load_data("orders")
+    transactions = load_data("transactions")
+    expenses = load_data("expenses")
+    income = load_data("income")
     
-    total_sales = orders.get("Total Amount", 0).sum()
-    paid = transactions.get("Amount Paid", 0).sum()
-    extra_income = income.get("Amount", 0).sum()
-    total_expenses = expenses.get("Amount", 0).sum()
+    total_sales = orders.get("Total Amount", pd.Series([0])).sum()
+    paid = transactions.get("Amount Paid", pd.Series([0])).sum()
+    extra_income = income.get("Amount", pd.Series([0])).sum()
+    total_expenses = expenses.get("Amount", pd.Series([0])).sum()
     net_balance = paid + extra_income - total_expenses
     
     col1, col2, col3, col4 = st.columns(4)
@@ -186,7 +185,7 @@ with tabs[0]:
 # ---------------------------
 with tabs[1]:
     st.header("👥 Customers")
-    customers = load_data(sheets["customers"])
+    customers = load_data("customers")
     search = st.text_input("Search by Name/Contact/Email")
     if search:
         mask = (customers["Name"].str.contains(search, case=False, na=False) |
@@ -213,8 +212,7 @@ with tabs[1]:
                     elif email and not validate_email(email):
                         st.error("Invalid email")
                     else:
-                        cid = get_next_id(sheets["customers"])
-                        append_row_safe(sheets["customers"], [cid, name, ctype, contact, email, address, "Yes" if vip else "", notes])
+                        append_row_safe("customers", [get_next_id("customers"), name, ctype, contact, email, address, "Yes" if vip else "", notes])
                         st.success("Customer added!")
                         st.rerun()
 
@@ -223,8 +221,8 @@ with tabs[1]:
 # ---------------------------
 with tabs[2]:
     st.header("📝 Orders")
-    orders = load_data(sheets["orders"])
-    customers = load_data(sheets["customers"])
+    orders = load_data("orders")
+    customers = load_data("customers")
     
     st.dataframe(paginate_dataframe(orders), use_container_width=True, hide_index=True)
     
@@ -253,8 +251,7 @@ with tabs[2]:
                         st.error("Items required")
                     else:
                         total = qty * price
-                        oid = get_next_id(sheets["orders"])
-                        append_row_safe(sheets["orders"], [oid, cid, str(order_date), str(delivery_date), items, qty, price, total, pay_status, order_status, notes])
+                        append_row_safe("orders", [get_next_id("orders"), cid, str(order_date), str(delivery_date), items, qty, price, total, pay_status, order_status, notes])
                         st.success("Order added!")
                         st.rerun()
 
@@ -263,8 +260,8 @@ with tabs[2]:
 # ---------------------------
 with tabs[3]:
     st.header("💳 Transactions")
-    transactions = load_data(sheets["transactions"])
-    orders = load_data(sheets["orders"])
+    transactions = load_data("transactions")
+    orders = load_data("orders")
     
     st.dataframe(paginate_dataframe(transactions), use_container_width=True, hide_index=True)
     
@@ -282,8 +279,7 @@ with tabs[3]:
                     total = orders[orders["Order Id"] == oid].get("Total Amount", 0).sum()
                     paid_so_far = transactions[transactions["Order Id"] == oid].get("Amount Paid", 0).sum()
                     remaining = total - (paid_so_far + amount)
-                    tid = get_next_id(sheets["transactions"])
-                    append_row_safe(sheets["transactions"], [tid, oid, str(date), amount, method, remaining, notes])
+                    append_row_safe("transactions", [get_next_id("transactions"), oid, str(date), amount, method, remaining, notes])
                     st.success("Transaction added!")
                     st.rerun()
 
@@ -292,7 +288,7 @@ with tabs[3]:
 # ---------------------------
 with tabs[4]:
     st.header("🧾 Expenses")
-    expenses = load_data(sheets["expenses"])
+    expenses = load_data("expenses")
     st.dataframe(paginate_dataframe(expenses), use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
@@ -309,8 +305,7 @@ with tabs[4]:
                     if not category:
                         st.error("Category required")
                     else:
-                        eid = get_next_id(sheets["expenses"])
-                        append_row_safe(sheets["expenses"], [eid, str(date), category, desc, amount, method, notes])
+                        append_row_safe("expenses", [get_next_id("expenses"), str(date), category, desc, amount, method, notes])
                         st.success("Expense added!")
                         st.rerun()
 
@@ -319,7 +314,7 @@ with tabs[4]:
 # ---------------------------
 with tabs[5]:
     st.header("💰 Other Income")
-    income = load_data(sheets["income"])
+    income = load_data("income")
     st.dataframe(paginate_dataframe(income), use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
@@ -335,8 +330,7 @@ with tabs[5]:
                     if not source:
                         st.error("Source required")
                     else:
-                        iid = get_next_id(sheets["income"])
-                        append_row_safe(sheets["income"], [iid, str(date), source, amount, method, notes])
+                        append_row_safe("income", [get_next_id("income"), str(date), source, amount, method, notes])
                         st.success("Income added!")
                         st.rerun()
 
@@ -345,7 +339,7 @@ with tabs[5]:
 # ---------------------------
 with tabs[6]:
     st.header("📦 Inventory")
-    inventory = load_data(sheets["inventory"])
+    inventory = load_data("inventory")
     st.dataframe(paginate_dataframe(inventory), use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
@@ -359,8 +353,7 @@ with tabs[6]:
                     if not item_name:
                         st.error("Item name required")
                     else:
-                        iid = get_next_id(sheets["inventory"])
-                        append_row_safe(sheets["inventory"], [iid, item_name, qty, unit_price])
+                        append_row_safe("inventory", [get_next_id("inventory"), item_name, qty, unit_price])
                         st.success("Item added!")
                         st.rerun()
 
@@ -371,19 +364,19 @@ with tabs[7]:
     st.header("📈 Financial Reports")
     st.subheader("Generate and Download Reports")
     
-    # Load data once for reports
-    customers = load_data(sheets["customers"])
-    orders = load_data(sheets["orders"])
-    transactions = load_data(sheets["transactions"])
-    expenses = load_data(sheets["expenses"])
-    income = load_data(sheets["income"])
-    inventory = load_data(sheets["inventory"])
+    # Load data once for reports (with cache)
+    customers = load_data("customers")
+    orders = load_data("orders")
+    transactions = load_data("transactions")
+    expenses = load_data("expenses")
+    income = load_data("income")
+    inventory = load_data("inventory")
     
     # Calculate summaries (reuse dashboard logic)
-    total_sales = orders.get("Total Amount", 0).sum()
-    paid = transactions.get("Amount Paid", 0).sum()
-    extra_income = income.get("Amount", 0).sum()
-    total_expenses = expenses.get("Amount", 0).sum()
+    total_sales = orders.get("Total Amount", pd.Series([0])).sum()
+    paid = transactions.get("Amount Paid", pd.Series([0])).sum()
+    extra_income = income.get("Amount", pd.Series([0])).sum()
+    total_expenses = expenses.get("Amount", pd.Series([0])).sum()
     net_profit = paid + extra_income - total_expenses
     
     # Profit & Loss summary DF
@@ -434,12 +427,9 @@ with tabs[7]:
 
     # Additional quick reports
     col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Receivables", f"₹ {rec_total:,.0f}")
-    with col2:
-        st.metric("Inventory Value", f"₹ {inv_total:,.0f}")
-    with col3:
-        st.metric("Net Profit", f"₹ {net_profit:,.0f}")
+    col1.metric("Total Receivables", f"₹ {rec_total:,.0f}")
+    col2.metric("Inventory Value", f"₹ {inv_total:,.0f}")
+    col3.metric("Net Profit", f"₹ {net_profit:,.0f}")
 
     # Optional: Show previews
     with st.expander("Preview Profit & Loss"):
@@ -455,7 +445,7 @@ with tabs[8]:
     st.subheader("Account Management")
     if st.session_state.user_role == "admin":
         if st.button("Export Customers CSV"):
-            customers = load_data(sheets["customers"])
+            customers = load_data("customers")
             csv = customers.to_csv(index=False).encode()
             st.download_button("Download CSV", data=csv, file_name="customers.csv", mime="text/csv")
     
