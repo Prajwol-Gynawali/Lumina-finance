@@ -146,7 +146,7 @@ def validate_email(email):
 # ---------------------------
 col1, col2 = st.columns([1, 5])  # Adjust ratios as needed
 with col1:
-    st.image("path/to/your/logo.png", width=100)  # Or use a URL: "https://your-logo-url.png"
+    st.image("IMG-20260105-WA0026.jpg", width=100)  # Or use a URL: "https://your-logo-url.png"
 with col2:
     st.title("Lumina Waters Finance")
 
