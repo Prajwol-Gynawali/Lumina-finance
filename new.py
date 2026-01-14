@@ -156,7 +156,7 @@ with col_logo:
     # Option 1: Use a text logo if no image available
     st.markdown("### 💧")
     # Option 2: Uncomment and replace with your actual logo URL
-    # st.image("YOUR_LOGO_URL_HERE", width=120)
+    # st.image("IMG-20260105-WA0026.jpg", width=120)
 with col_title:
     st.title("💧 Lumina Waters Finance")
 
