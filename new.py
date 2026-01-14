@@ -124,12 +124,14 @@ def append_row_safe(sheet_name, values):
 def validate_email(email):
     return bool(re.match(r"[^@]+@[^@]+\.[^@]+", str(email))) if email else True
 
+# Fixed pagination - removed sheet_name from key to avoid NameError
 def paginate_dataframe(df, page_size=15):
     if df.empty:
         st.info("No data available")
         return pd.DataFrame()
     total_pages = max(1, (len(df) + page_size - 1) // page_size)
-    page = st.selectbox("Page", range(1, total_pages + 1), key=f"page_{sheet_name}_{hash(str(df.columns))}")
+    # Unique key using id(df) - safe across tabs
+    page = st.selectbox("Page", range(1, total_pages + 1), key=f"page_{id(df)}")
     start = (page - 1) * page_size
     return df.iloc[start:start + page_size]
 
@@ -183,14 +185,15 @@ with tabs[0]:
 with tabs[1]:
     st.header("👥 Customers")
     customers = load_data("customers")
-    search = st.text_input("Search by Name/Contact/Email", key="search_customers")
+    search = st.text_input("Search by Name/Contact/Email")
     if search:
         mask = (customers["Name"].str.contains(search, case=False, na=False) |
                 customers.get("Contact", pd.Series("")).str.contains(search, case=False, na=False) |
                 customers.get("Email", pd.Series("")).str.contains(search, case=False, na=False))
         customers = customers[mask]
     
-    st.dataframe(paginate_dataframe(customers), use_container_width=True, hide_index=True)
+    paginated = paginate_dataframe(customers)
+    st.dataframe(paginated, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Customer"):
@@ -222,7 +225,8 @@ with tabs[2]:
     orders = load_data("orders")
     customers = load_data("customers")
     
-    st.dataframe(paginate_dataframe(orders), use_container_width=True, hide_index=True)
+    paginated = paginate_dataframe(orders)
+    st.dataframe(paginated, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Order"):
@@ -262,7 +266,8 @@ with tabs[3]:
     transactions = load_data("transactions")
     orders = load_data("orders")
     
-    st.dataframe(paginate_dataframe(transactions), use_container_width=True, hide_index=True)
+    paginated = paginate_dataframe(transactions)
+    st.dataframe(paginated, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin" and not orders.empty:
         with st.expander("➕ Add Transaction"):
@@ -291,7 +296,8 @@ with tabs[4]:
     st.header("🧾 Expenses")
     expenses = load_data("expenses")
     
-    st.dataframe(paginate_dataframe(expenses), use_container_width=True, hide_index=True)
+    paginated = paginate_dataframe(expenses)
+    st.dataframe(paginated, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Expense"):
@@ -319,7 +325,8 @@ with tabs[5]:
     st.header("💰 Other Income")
     income = load_data("income")
     
-    st.dataframe(paginate_dataframe(income), use_container_width=True, hide_index=True)
+    paginated = paginate_dataframe(income)
+    st.dataframe(paginated, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Income"):
@@ -346,7 +353,8 @@ with tabs[6]:
     st.header("📦 Inventory")
     inventory = load_data("inventory")
     
-    st.dataframe(paginate_dataframe(inventory), use_container_width=True, hide_index=True)
+    paginated = paginate_dataframe(inventory)
+    st.dataframe(paginated, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Item"):
@@ -397,11 +405,11 @@ with tabs[7]:
     
     if not orders.empty:
         paid_by_order = transactions.groupby("Order Id")["Amount Paid"].sum().reset_index()
-        orders = orders.merge(paid_by_order, left_on="Order Id", right_on="Order Id", how="left")
-        orders["Amount Paid"] = orders["Amount Paid"].fillna(0)
-        orders["Unpaid"] = orders["Total Amount"] - orders["Amount Paid"]
-        receivables = orders[orders["Unpaid"] > 0][["Order Id", "Customer Id", "Total Amount", "Unpaid"]]
-        rec_total = orders["Unpaid"].sum()
+        orders_merged = orders.merge(paid_by_order, on="Order Id", how="left")
+        orders_merged["Amount Paid"] = orders_merged["Amount Paid"].fillna(0)
+        orders_merged["Unpaid"] = orders_merged["Total Amount"] - orders_merged["Amount Paid"]
+        receivables = orders_merged[orders_merged["Unpaid"] > 0][["Order Id", "Customer Id", "Total Amount", "Unpaid"]]
+        rec_total = orders_merged["Unpaid"].sum()
     else:
         receivables = pd.DataFrame()
         rec_total = 0
