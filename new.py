@@ -6,7 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import plotly.express as px
 import re
 from io import BytesIO
-import time  # Added for delay to avoid quota issues
+import time  # For quota delay
 
 # ---------------------------
 # PAGE CONFIG
@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # ---------------------------
-# DARK THEME CSS (fixed dark theme - toggle removed as it was broken)
+# DARK THEME CSS
 # ---------------------------
 st.markdown("""
 <style>
@@ -91,24 +91,22 @@ except Exception as e:
     st.stop()
 
 # ---------------------------
-# UTILITY FUNCTIONS (improved with tolerant headers & safe ID)
+# UTILITY FUNCTIONS
 # ---------------------------
-@st.cache_data(ttl=60)  # Cache data for 1 minute to reduce API calls
+@st.cache_data(ttl=300)  # Cache for 5 minutes to reduce API calls
 def load_data(sheet_name):
     try:
         ws = sheets[sheet_name]
         values = ws.get_all_values()
         if len(values) <= 1:
             return pd.DataFrame()
-        # Normalize headers: strip, title case, fix common typos
         headers = [str(c).strip().title().replace("Ii", "Id").replace("Metho", "Method") for c in values[0]]
         df = pd.DataFrame(values[1:], columns=headers)
-        # Convert known numeric columns
         numeric_cols = ["Total Amount", "Amount Paid", "Amount", "Price", "Quantity", "Unit Price", "Remaining Amount", "Remaining"]
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        time.sleep(1)  # Delay to avoid quota exceed
+        time.sleep(0.5)  # Small delay to avoid quota hits
         return df
     except Exception as e:
         st.error(f"❌ Failed to load {sheet_name}: {str(e)}")
@@ -126,29 +124,34 @@ def get_next_id(sheet_name):
 def append_row_safe(sheet_name, values):
     try:
         ws = sheets[sheet_name]
-        clean = []
-        for v in values:
-            if pd.isna(v):
-                clean.append("")
-            elif isinstance(v, (datetime, pd.Timestamp)):
-                clean.append(v.strftime("%Y-%m-%d"))
-            else:
-                clean.append(str(v))
+        clean = [str(v) if not pd.isna(v) else "" for v in values]
         ws.append_row(clean)
+        time.sleep(0.5)  # Delay for write
     except Exception as e:
-        st.error(f"❌ Failed to append to {sheet_name}: {str(e)}")
+        st.error(f"❌ Failed to add to {sheet_name}: {str(e)}")
 
 def validate_email(email):
     return bool(re.match(r"[^@]+@[^@]+\.[^@]+", str(email))) if email else True
 
+# Fixed pagination function (this was missing in your current file, causing the NameError)
+def paginate_dataframe(df, page_size=15):
+    if df.empty:
+        st.info("No data available")
+        return pd.DataFrame()
+    total_pages = max(1, (len(df) + page_size - 1) // page_size)
+    page_number = st.selectbox("Page", range(1, total_pages + 1), key=f"page_{hash(str(df.columns))}_{id(df)}")
+    start = (page_number - 1) * page_size
+    return df.iloc[start:start + page_size]
+
 # ---------------------------
-# HEADER (with logo)
+# HEADER (with optional logo - replace URL with your own)
 # ---------------------------
-col1, col2 = st.columns([1, 5])  # Adjust ratios as needed
-with col1:
-    st.image("IMG-20260105-WA0026.jpg", width=100)  # Or use a URL: "https://your-logo-url.png"
-with col2:
-    st.title("Lumina Waters Finance")
+col_logo, col_title = st.columns([1, 4])
+with col_logo:
+    # Replace with your GitHub raw URL or local path
+    st.image("IMG-20260105-WA0026.jpg", width=100)  # Placeholder - replace with your logo URL
+with col_title:
+    st.title("💧 Lumina Waters Finance")
 
 # ---------------------------
 # NAVIGATION
@@ -197,7 +200,8 @@ with tabs[1]:
                 customers.get("Email", "").str.contains(search, case=False, na=False))
         customers = customers[mask]
     
-    st.dataframe(paginate_dataframe(customers), use_container_width=True, hide_index=True)
+    paginated_df = paginate_dataframe(customers)
+    st.dataframe(paginated_df, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Customer"):
@@ -228,7 +232,8 @@ with tabs[2]:
     orders = load_data("orders")
     customers = load_data("customers")
     
-    st.dataframe(paginate_dataframe(orders), use_container_width=True, hide_index=True)
+    paginated_df = paginate_dataframe(orders)
+    st.dataframe(paginated_df, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Order"):
@@ -267,12 +272,13 @@ with tabs[3]:
     transactions = load_data("transactions")
     orders = load_data("orders")
     
-    st.dataframe(paginate_dataframe(transactions), use_container_width=True, hide_index=True)
+    paginated_df = paginate_dataframe(transactions)
+    st.dataframe(paginated_df, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin" and not orders.empty:
         with st.expander("➕ Add Transaction"):
             with st.form("add_transaction"):
-                oid = st.selectbox("Order ID *", orders.get("Order Id", []))
+                oid = st.selectbox("Order ID *", orders.get("Order Id", pd.Series([])).tolist())
                 date = st.date_input("Date", datetime.today())
                 amount = st.number_input("Amount Paid", min_value=0.0)
                 method = st.selectbox("Payment Method", ["Cash", "Bank", "Online"])
@@ -293,7 +299,9 @@ with tabs[3]:
 with tabs[4]:
     st.header("🧾 Expenses")
     expenses = load_data("expenses")
-    st.dataframe(paginate_dataframe(expenses), use_container_width=True, hide_index=True)
+    
+    paginated_df = paginate_dataframe(expenses)
+    st.dataframe(paginated_df, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Expense"):
@@ -319,7 +327,9 @@ with tabs[4]:
 with tabs[5]:
     st.header("💰 Other Income")
     income = load_data("income")
-    st.dataframe(paginate_dataframe(income), use_container_width=True, hide_index=True)
+    
+    paginated_df = paginate_dataframe(income)
+    st.dataframe(paginated_df, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Income"):
@@ -344,7 +354,9 @@ with tabs[5]:
 with tabs[6]:
     st.header("📦 Inventory")
     inventory = load_data("inventory")
-    st.dataframe(paginate_dataframe(inventory), use_container_width=True, hide_index=True)
+    
+    paginated_df = paginate_dataframe(inventory)
+    st.dataframe(paginated_df, use_container_width=True, hide_index=True)
     
     if st.session_state.user_role == "admin":
         with st.expander("➕ Add Item"):
@@ -362,13 +374,12 @@ with tabs[6]:
                         st.rerun()
 
 # ---------------------------
-# REPORTS (new tab for financial reporting tools)
+# REPORTS
 # ---------------------------
 with tabs[7]:
     st.header("📈 Financial Reports")
     st.subheader("Generate and Download Reports")
     
-    # Load data once for reports (with cache)
     customers = load_data("customers")
     orders = load_data("orders")
     transactions = load_data("transactions")
@@ -376,38 +387,30 @@ with tabs[7]:
     income = load_data("income")
     inventory = load_data("inventory")
     
-    # Calculate summaries (reuse dashboard logic)
     total_sales = orders.get("Total Amount", pd.Series([0])).sum()
     paid = transactions.get("Amount Paid", pd.Series([0])).sum()
     extra_income = income.get("Amount", pd.Series([0])).sum()
     total_expenses = expenses.get("Amount", pd.Series([0])).sum()
     net_profit = paid + extra_income - total_expenses
     
-    # Profit & Loss summary DF
     pl_df = pd.DataFrame({
         "Category": ["Sales Revenue", "Other Income", "Total Income", "Expenses", "Net Profit"],
         "Amount": [total_sales, extra_income, total_sales + extra_income, -total_expenses, net_profit]
     })
     
-    # Inventory valuation (simple: qty * unit price sum)
     if not inventory.empty and "Quantity" in inventory.columns and "Unit Price" in inventory.columns:
         inventory["Value"] = inventory["Quantity"] * inventory["Unit Price"]
         inv_total = inventory["Value"].sum()
-        inv_summary = inventory[["Item Name", "Quantity", "Unit Price", "Value"]]
     else:
-        inv_summary = pd.DataFrame()
         inv_total = 0
     
-    # Unpaid orders (receivables)
     if not orders.empty:
         orders["Unpaid"] = orders["Total Amount"] - orders.merge(transactions.groupby("Order Id")["Amount Paid"].sum().reset_index(), left_on="Order Id", right_on="Order Id", how="left")["Amount Paid"].fillna(0)
         receivables = orders[orders["Unpaid"] > 0][["Order Id", "Customer Id", "Total Amount", "Unpaid"]]
         rec_total = receivables["Unpaid"].sum()
     else:
-        receivables = pd.DataFrame()
         rec_total = 0
     
-    # Download Full Report button
     if st.button("Generate Full Financial Report (Excel)"):
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -418,7 +421,7 @@ with tabs[7]:
             income.to_excel(writer, sheet_name="Other Income", index=False)
             inventory.to_excel(writer, sheet_name="Inventory", index=False)
             customers.to_excel(writer, sheet_name="Customers", index=False)
-            if not receivables.empty:
+            if "receivables" in locals() and not receivables.empty:
                 receivables.to_excel(writer, sheet_name="Receivables", index=False)
         
         buffer.seek(0)
@@ -429,17 +432,15 @@ with tabs[7]:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # Additional quick reports
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Receivables", f"₹ {rec_total:,.0f}")
     col2.metric("Inventory Value", f"₹ {inv_total:,.0f}")
     col3.metric("Net Profit", f"₹ {net_profit:,.0f}")
 
-    # Optional: Show previews
     with st.expander("Preview Profit & Loss"):
         st.dataframe(pl_df)
     with st.expander("Preview Receivables"):
-        st.dataframe(receivables)
+        st.dataframe(receivables if 'receivables' in locals() else pd.DataFrame())
 
 # ---------------------------
 # SETTINGS
