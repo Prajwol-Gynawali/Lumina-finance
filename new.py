@@ -364,6 +364,91 @@ with tabs[6]:
                         st.rerun()
 
 # ---------------------------
+# REPORTS (new tab for financial reporting tools)
+# ---------------------------
+with tabs[7]:
+    st.header("📈 Financial Reports")
+    st.subheader("Generate and Download Reports")
+    
+    # Load data once for reports
+    customers = load_data(sheets["customers"])
+    orders = load_data(sheets["orders"])
+    transactions = load_data(sheets["transactions"])
+    expenses = load_data(sheets["expenses"])
+    income = load_data(sheets["income"])
+    inventory = load_data(sheets["inventory"])
+    
+    # Calculate summaries (reuse dashboard logic)
+    total_sales = orders.get("Total Amount", 0).sum()
+    paid = transactions.get("Amount Paid", 0).sum()
+    extra_income = income.get("Amount", 0).sum()
+    total_expenses = expenses.get("Amount", 0).sum()
+    net_profit = paid + extra_income - total_expenses
+    
+    # Profit & Loss summary DF
+    pl_df = pd.DataFrame({
+        "Category": ["Sales Revenue", "Other Income", "Total Income", "Expenses", "Net Profit"],
+        "Amount": [total_sales, extra_income, total_sales + extra_income, -total_expenses, net_profit]
+    })
+    
+    # Inventory valuation (simple: qty * unit price sum)
+    if not inventory.empty and "Quantity" in inventory.columns and "Unit Price" in inventory.columns:
+        inventory["Value"] = inventory["Quantity"] * inventory["Unit Price"]
+        inv_total = inventory["Value"].sum()
+        inv_summary = inventory[["Item Name", "Quantity", "Unit Price", "Value"]]
+    else:
+        inv_summary = pd.DataFrame()
+        inv_total = 0
+    
+    # Unpaid orders (receivables)
+    if not orders.empty:
+        orders["Unpaid"] = orders["Total Amount"] - orders.merge(transactions.groupby("Order Id")["Amount Paid"].sum().reset_index(), left_on="Order Id", right_on="Order Id", how="left")["Amount Paid"].fillna(0)
+        receivables = orders[orders["Unpaid"] > 0][["Order Id", "Customer Id", "Total Amount", "Unpaid"]]
+        rec_total = receivables["Unpaid"].sum()
+    else:
+        receivables = pd.DataFrame()
+        rec_total = 0
+    
+    # Download Full Report button
+    if st.button("Generate Full Financial Report (Excel)"):
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            pl_df.to_excel(writer, sheet_name="Profit & Loss", index=False)
+            orders.to_excel(writer, sheet_name="Orders", index=False)
+            transactions.to_excel(writer, sheet_name="Transactions", index=False)
+            expenses.to_excel(writer, sheet_name="Expenses", index=False)
+            income.to_excel(writer, sheet_name="Other Income", index=False)
+            inventory.to_excel(writer, sheet_name="Inventory", index=False)
+            customers.to_excel(writer, sheet_name="Customers", index=False)
+            if not receivables.empty:
+                receivables.to_excel(writer, sheet_name="Receivables", index=False)
+        
+        buffer.seek(0)
+        st.download_button(
+            label="Download Full Report.xlsx",
+            data=buffer,
+            file_name="lumina_waters_full_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    # Additional quick reports
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Receivables", f"₹ {rec_total:,.0f}")
+    with col2:
+        st.metric("Inventory Value", f"₹ {inv_total:,.0f}")
+    with col3:
+        st.metric("Net Profit", f"₹ {net_profit:,.0f}")
+
+    # Optional: Show previews
+    with st.expander("Preview Profit & Loss"):
+        st.dataframe(pl_df)
+    with st.expander("Preview Receivables"):
+        st.dataframe(receivables)
+
+# ---------------------------
+
+# ---------------------------
 # SETTINGS
 # ---------------------------
 with tabs[7]:
