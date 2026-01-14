@@ -270,8 +270,14 @@ with tabs[3]:
     if st.session_state.user_role == "admin" and not orders.empty:
         with st.expander("➕ Add Transaction"):
             with st.form("add_transaction"):
-                order_options = orders.get("Order Id", pd.Series([])).tolist()
+                # Dynamic column detection for robustness
+                order_id_col = next((col for col in orders.columns if "order" in col.lower() and "id" in col.lower()), None)
+                if not order_id_col:
+                    st.error("Could not find 'Order ID' column in Orders sheet. Check headers.")
+                    st.stop()
+                order_options = orders[order_id_col].dropna().unique().tolist()
                 oid = st.selectbox("Order ID *", order_options)
+                
                 date = st.date_input("Date", datetime.today())
                 amount = st.number_input("Amount Paid", min_value=0.0)
                 method = st.selectbox("Payment Method", ["Cash", "Bank", "Online"])
@@ -279,13 +285,22 @@ with tabs[3]:
                 
                 submitted = st.form_submit_button("Save Transaction")
                 if submitted:
-                    total = orders[orders["Order Id"] == oid].get("Total Amount", 0).sum()
-                    paid_so_far = transactions[transactions["Order Id"] == oid].get("Amount Paid", 0).sum()
-                    remaining = total - (paid_so_far + amount)
-                    append_row_safe("transactions", [get_next_id("transactions"), oid, str(date), amount, method, remaining, notes])
-                    st.success("Transaction added!")
-                    load_data.clear()
-                    st.rerun()
+                    # Dynamic columns for calculation
+                    total_amount_col = next((col for col in orders.columns if "total" in col.lower() and "amount" in col.lower()), None)
+                    amount_paid_col = next((col for col in transactions.columns if "amount" in col.lower() and "paid" in col.lower()), None)
+                    
+                    if not total_amount_col:
+                        st.error("Could not find 'Total Amount' column in Orders sheet.")
+                    elif not amount_paid_col:
+                        st.error("Could not find 'Amount Paid' column in Transactions sheet.")
+                    else:
+                        total = orders[orders[order_id_col] == oid][total_amount_col].sum()
+                        paid_so_far = transactions[transactions[order_id_col] == oid][amount_paid_col].sum()
+                        remaining = total - (paid_so_far + amount)
+                        append_row_safe("transactions", [get_next_id("transactions"), oid, str(date), amount, method, remaining, notes])
+                        st.success("Transaction added!")
+                        load_data.clear()
+                        st.rerun()
 
 # ---------------------------
 # EXPENSES
@@ -402,13 +417,11 @@ with tabs[7]:
     
     rec_total = 0
     receivables = pd.DataFrame()
-    total_amount_col = None
     if not orders.empty and not transactions.empty:
-        # Dynamic column detection
-        order_id_col = next((col for col in transactions.columns if "Order" in col and ("Id" in col or "ID" in col)), None)
-        amount_paid_col = next((col for col in transactions.columns if "Amount" in col and "Paid" in col), None)
-        total_amount_col = next((col for col in orders.columns if "Total" in col and "Amount" in col), None)
-        customer_id_col = next((col for col in orders.columns if "Customer" in col and ("Id" in col or "ID" in col)), None)
+        order_id_col = next((col for col in orders.columns if "order" in col.lower() and "id" in col.lower()), None)
+        amount_paid_col = next((col for col in transactions.columns if "amount" in col.lower() and "paid" in col.lower()), None)
+        total_amount_col = next((col for col in orders.columns if "total" in col.lower() and "amount" in col.lower()), None)
+        customer_id_col = next((col for col in orders.columns if "customer" in col.lower() and "id" in col.lower()), None)
         
         if order_id_col and amount_paid_col and total_amount_col:
             paid_by_order = transactions.groupby(order_id_col)[amount_paid_col].sum().reset_index()
@@ -422,7 +435,7 @@ with tabs[7]:
             receivables = orders_merged[orders_merged["Unpaid"] > 0][select_cols]
             rec_total = orders_merged["Unpaid"].sum()
         else:
-            st.warning("Could not calculate receivables - missing required columns in sheets")
+            st.warning("Could not calculate receivables - missing required columns")
     
     if st.button("Generate Full Financial Report (Excel)"):
         buffer = BytesIO()
@@ -454,8 +467,10 @@ with tabs[7]:
         st.dataframe(pl_df.style.format({"Amount": "₹ {:,.0f}"}))
 
     with st.expander("Preview Receivables"):
-        if not receivables.empty and total_amount_col:
-            format_dict = {total_amount_col: "₹ {:,.0f}", "Unpaid": "₹ {:,.0f}"}
+        if not receivables.empty:
+            format_dict = {"Unpaid": "₹ {:,.0f}"}
+            if total_amount_col:
+                format_dict[total_amount_col] = "₹ {:,.0f}"
             st.dataframe(receivables.style.format(format_dict))
         else:
             st.dataframe(receivables)
