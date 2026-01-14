@@ -5,6 +5,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import plotly.express as px
 import re
+from io import BytesIO
 
 # ---------------------------
 # PAGE CONFIG
@@ -151,7 +152,7 @@ st.title("💧 Lumina Waters Finance")
 # ---------------------------
 tabs = st.tabs([
     "📊 Dashboard", "👥 Customers", "📝 Orders", "💳 Transactions",
-    "🧾 Expenses", "💰 Other Income", "📦 Inventory", "⚙️ Settings"
+    "🧾 Expenses", "💰 Other Income", "📦 Inventory", "📈 Reports", "⚙️ Settings"
 ])
 
 # ---------------------------
@@ -447,11 +448,9 @@ with tabs[7]:
         st.dataframe(receivables)
 
 # ---------------------------
-
-# ---------------------------
 # SETTINGS
 # ---------------------------
-with tabs[7]:
+with tabs[8]:
     st.header("⚙️ Settings")
     st.subheader("Account Management")
     if st.session_state.user_role == "admin":
