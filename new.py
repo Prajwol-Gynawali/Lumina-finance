@@ -142,9 +142,13 @@ def validate_email(email):
     return bool(re.match(r"[^@]+@[^@]+\.[^@]+", str(email))) if email else True
 
 # ---------------------------
-# HEADER
+# HEADER (with logo)
 # ---------------------------
-st.title("💧 Lumina Waters Finance")
+col1, col2 = st.columns([1, 5])  # Adjust ratios as needed
+with col1:
+    st.image("path/to/your/logo.png", width=100)  # Or use a URL: "https://your-logo-url.png"
+with col2:
+    st.title("Lumina Waters Finance")
 
 # ---------------------------
 # NAVIGATION
